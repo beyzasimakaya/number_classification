@@ -17,11 +17,12 @@ class Classifier(nn.Module):
         self.layer2 = nn.Linear(256,128)
         self.layer3 = nn.Linear(128,64)
         self.layer4 = nn.Linear(64,10)
+        self.dropout = nn.Dropout(p=0.3)
     def forward(self,x):
         x = x.view(x.shape[0],-1)
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        x = F.relu(self.layer3(x))
+        x = self.dropout(F.relu(self.layer1(x)))
+        x = self.dropout(F.relu(self.layer2(x)))
+        x = self.dropout(F.relu(self.layer3(x)))
         x = F.log_softmax(self.layer4(x),dim=1)
         return x
 
