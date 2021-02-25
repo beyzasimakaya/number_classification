@@ -8,6 +8,8 @@ from torchvision import datasets,transforms
 transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize((0.5,),(0.5,))])
 train_set = datasets.MNIST("~/.pytorch/MNIST_data/",download=True,train=True,transform=transform)
 train_loader = torch.utils.data.DataLoader(train_set,batch_size=64,shuffle=True)
+test_set = datasets.MNIST("~/.pytorch/MNIST_data",download=True,train=False,transform=transform)
+testloader = torch.utils.data.DataLoader(test_set,batch_size=64,shuffle=True)
 class Classifier(nn.Module):
     def __init__(self):
         super().__init__()
@@ -26,23 +28,35 @@ class Classifier(nn.Module):
 model = Classifier()
 criterion = nn.NLLLoss()
 optimizer = optim.Adam(model.parameters(),lr = 0.003)
-epochs = 5 
+train_losses, test_losses = [], []
+epochs = 30
+steps = 0 
 for e in range(epochs):
     running_loss=0
-    correct = 0
     for images,labels in train_loader:
+        optimizer.zero_grad()
         ps = model(images)
         loss = criterion(ps,labels)
-        optimizer.zero_grad()
-        _,pred_label = torch.max(ps, dim = 1)
-        correct = (pred_label == labels).float()
         loss.backward()
         optimizer.step()
-        
         running_loss += loss.item()
     
-    
-    accuracy = correct.sum() / len(correct)
-    print(f"Accuracy = {accuracy}")
-    print(f"Training Loss : {running_loss/len(train_loader)}")
-    
+    test_loss = 0 
+    accuracy = 0
+    with torch.no_grad():
+        model.eval()
+        for images, labels in testloader:
+            ps = model(images)
+            test_loss += criterion(ps,labels)
+            ps = torch.exp(ps)
+            top_p, top_c = ps.topk(1,dim = 1)
+            equals = top_c==labels.view(*top_c.shape)
+            accuracy += torch.mean(equals.type(torch.FloatTensor))
+    model.train()
+    train_losses.append(running_loss/len(train_loader))
+    test_losses.append(test_loss/len(testloader))
+
+    print("Epoch: {}/{}.. ".format(e+1, epochs),
+              "Training Loss: {:.3f}.. ".format(train_losses[-1]),
+              "Test Loss: {:.3f}.. ".format(test_losses[-1]),
+              "Test Accuracy: {:.3f}".format(accuracy/len(testloader)))
